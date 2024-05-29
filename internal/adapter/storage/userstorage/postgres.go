@@ -163,6 +163,17 @@ func (s *PostgresStorage) GetByID(ctx context.Context, userId string) (*auth.Use
 	return users[0], nil
 }
 
+func (s *PostgresStorage) GetByAuthorization(ctx context.Context, identifier string) (*auth.User, error) {
+	users, err := s.get(ctx, "a.identifier = ? ", identifier)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, auth.ErrUserNotFound
+	}
+	return users[0], nil
+}
+
 func (s *PostgresStorage) Persist(ctx context.Context, u *auth.User) error {
 	dbState, err := s.GetByID(ctx, u.UserID)
 	if err != nil {

@@ -45,6 +45,10 @@ type Authorization struct {
 	Device     Device     `diff:"-"`
 }
 
+func (a *Authorization) IsActive() bool {
+	return time.Now().Before(a.ValidUntil) && a.LogoutAt == nil
+}
+
 type User struct {
 	domain.Aggregate `diff:"-"`
 	UserID           string          `diff:"-"`
@@ -53,6 +57,18 @@ type User struct {
 	CreatedAt        time.Time       `diff:"-"`
 	UpdatedAt        time.Time       `diff:"updated_at"`
 	Authorizations   []Authorization `diff:"-"`
+}
+
+func (u *User) GetAuthorization(identifier string) *Authorization {
+	var auth *Authorization
+
+	for i, a := range u.Authorizations {
+		if a.Identifier == identifier {
+			auth = &u.Authorizations[i]
+		}
+	}
+
+	return auth
 }
 
 func NewUser(
@@ -97,13 +113,8 @@ func (u *User) Authorize(a Authorizer, password string, dev Device) (Authorizati
 }
 
 func (u *User) Logout(identifier string) error {
-	var auth *Authorization
+	auth := u.GetAuthorization(identifier)
 
-	for i, a := range u.Authorizations {
-		if a.Identifier == identifier {
-			auth = &u.Authorizations[i]
-		}
-	}
 	if auth == nil {
 		return fmt.Errorf("%w: provided identifier not found", ErrUnauthorized)
 	}

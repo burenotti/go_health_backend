@@ -2,9 +2,15 @@ package authapp
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"log/slog"
+)
+
+var (
+	ErrInvalidAuthorization = errors.New("invalid authorization")
 )
 
 type Service struct {
@@ -97,6 +103,29 @@ func (s *Service) Logout(
 
 		return a.Commit()
 	})
+}
+
+func (s *Service) Refresh(
+	ctx context.Context,
+	uow *unitofwork.UnitOfWork[*AtomicContext],
+	authIdentifier string,
+) (tokens Tokens, err error) {
+	err = uow.Atomic(ctx, func(ctx context.Context, atomicContext *AtomicContext) error {
+		user, err := atomicContext.UserStorage.GetByAuthorization(ctx, authIdentifier)
+		if err != nil {
+			return err
+		}
+
+		a := user.GetAuthorization(authIdentifier)
+		if !a.IsActive() {
+			return fmt.Errorf("%w: authorization is not active", ErrInvalidAuthorization)
+		}
+
+		tokens.AccessToken, err = s.Authorizer.GenerateAccessToken(user, a)
+		tokens.RefreshToken = a.Identifier
+		return err
+	})
+	return
 }
 
 type Tokens struct {

@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mileusna/useragent"
 	"net/http"
+	"strings"
 )
 
 func (s *Server) MountAuth() {
@@ -105,6 +106,33 @@ func (s *Server) Logout(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (s *Server) Refresh(ctx echo.Context) error {
-	panic("implement me")
+type refreshResp struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (s *Server) Refresh(c echo.Context) error {
+	header := c.Request().Header.Get("Authorization")
+	parts := strings.Split(header, " ")
+	if len(parts) != 2 {
+		return JsonError(c, http.StatusBadRequest, "invalid authorization header")
+	}
+
+	if parts[0] != "Refresh" {
+		return JsonError(c, http.StatusBadRequest, "invalid authorization header")
+	}
+
+	uow := unitofwork.New[*authapp.AtomicContext](s.db, authapp.NewAtomicContext, s.msgBus, s.logger)
+	ctx := c.Request().Context()
+	tokens, err := s.authService.Refresh(ctx, uow, parts[1])
+	if err != nil {
+		if errors.Is(err, authapp.ErrInvalidAuthorization) {
+			return JsonError(c, http.StatusUnauthorized, err)
+		}
+	}
+
+	return c.JSON(http.StatusOK, &refreshResp{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
 }

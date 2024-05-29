@@ -14,6 +14,7 @@ type UserStorage interface {
 	Add(ctx context.Context, u *auth.User) error
 	GetByEmail(ctx context.Context, email string) (*auth.User, error)
 	GetByID(ctx context.Context, userId string) (*auth.User, error)
+	GetByAuthorization(ctx context.Context, identifier string) (*auth.User, error)
 	Persist(ctx context.Context, u *auth.User) error
 	CollectEvents() []domain.Event
 	Close() error
