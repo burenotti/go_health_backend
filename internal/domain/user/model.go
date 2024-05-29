@@ -86,6 +86,13 @@ func (u *User) Authorize(a Authorizer, password string, dev Device) (Authorizati
 
 	u.Authorizations = append(u.Authorizations, auth)
 
+	u.PushEvent(LoginEvent{
+		At:         time.Now().UTC(),
+		UserID:     u.UserID,
+		Identifier: auth.Identifier,
+		Device:     auth.Device,
+	})
+
 	return auth, nil
 }
 
@@ -107,6 +114,12 @@ func (u *User) Logout(identifier string) error {
 
 	now := time.Now().UTC()
 	auth.LogoutAt = &now
+
+	u.PushEvent(LogoutEvent{
+		At:         time.Now().UTC(),
+		UserID:     u.UserID,
+		Identifier: auth.Identifier,
+	})
 
 	return nil
 }
