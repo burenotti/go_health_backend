@@ -1,11 +1,11 @@
-package auth
+package authapp
 
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/burenotti/go_health_backend/internal/domain/user"
+	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 	"time"
@@ -23,18 +23,18 @@ type Authorizer struct {
 	AuthorizationTTL time.Duration
 }
 
-func (a *Authorizer) Authorize(u *user.User, password string, dev user.Device) (user.Authorization, error) {
+func (a *Authorizer) Authorize(u *auth.User, password string, dev auth.Device) (auth.Authorization, error) {
 	hashBytes, err := hex.DecodeString(u.PasswordHash)
 	if err != nil {
-		return user.Authorization{}, err
+		return auth.Authorization{}, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword(hashBytes, []byte(password)); err != nil {
-		return user.Authorization{}, user.ErrInvalidCredentials
+		return auth.Authorization{}, auth.ErrInvalidCredentials
 	}
 
 	now := time.Now().UTC()
-	auth := user.Authorization{
+	auth := auth.Authorization{
 		Identifier: a.generateIdentifier(),
 		CreatedAt:  now,
 		ValidUntil: now.Add(a.AuthorizationTTL),
@@ -61,7 +61,7 @@ func (a *Authorizer) generateIdentifier() string {
 	return hex.EncodeToString(bytes[:])
 }
 
-func (a *Authorizer) GenerateAccessToken(u *user.User, auth *user.Authorization) (string, error) {
+func (a *Authorizer) GenerateAccessToken(u *auth.User, auth *auth.Authorization) (string, error) {
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"jti": auth.Identifier,

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/domain"
-	"github.com/burenotti/go_health_backend/internal/domain/user"
+	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/leporo/sqlf"
@@ -25,7 +25,7 @@ type PostgresStorage struct {
 	db     storage.DBContext
 	logger *slog.Logger
 	seenMu sync.Mutex
-	seen   map[string]*user.User
+	seen   map[string]*auth.User
 }
 
 func NewPostgresStorage(db storage.DBContext, logger *slog.Logger) *PostgresStorage {
@@ -33,12 +33,12 @@ func NewPostgresStorage(db storage.DBContext, logger *slog.Logger) *PostgresStor
 	return &PostgresStorage{
 		db:     db,
 		logger: logger,
-		seen:   make(map[string]*user.User),
+		seen:   make(map[string]*auth.User),
 		seenMu: sync.Mutex{},
 	}
 }
 
-func (s *PostgresStorage) Add(ctx context.Context, u *user.User) error {
+func (s *PostgresStorage) Add(ctx context.Context, u *auth.User) error {
 	q := sqlf.InsertInto("users").
 		Set("user_id", u.UserID).
 		Set("email", u.Email).
@@ -48,7 +48,7 @@ func (s *PostgresStorage) Add(ctx context.Context, u *user.User) error {
 
 	if _, err := q.Exec(ctx, s.db); err != nil {
 		if isUserDuplicated(err) {
-			return errors.Join(fmt.Errorf("user exists: %w", err), user.ErrUserExists)
+			return errors.Join(fmt.Errorf("user exists: %w", err), auth.ErrUserExists)
 		}
 		return internalError(err)
 	}
@@ -64,7 +64,7 @@ func (s *PostgresStorage) Add(ctx context.Context, u *user.User) error {
 	return nil
 }
 
-func (s *PostgresStorage) addAuth(ctx context.Context, userId string, a *user.Authorization) error {
+func (s *PostgresStorage) addAuth(ctx context.Context, userId string, a *auth.Authorization) error {
 	addAuth := sqlf.InsertInto("authorizations").
 		Set("identifier", a.Identifier).
 		Set("logout_at", a.LogoutAt).
@@ -83,7 +83,7 @@ func (s *PostgresStorage) addAuth(ctx context.Context, userId string, a *user.Au
 		var pgErr *pgconn.PgError
 
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-			return user.ErrAuthorizationExists
+			return auth.ErrAuthorizationExists
 		}
 
 		return internalError(err)
@@ -93,7 +93,7 @@ func (s *PostgresStorage) addAuth(ctx context.Context, userId string, a *user.Au
 		var pgErr *pgconn.PgError
 
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-			return user.ErrDeviceExists
+			return auth.ErrDeviceExists
 		}
 
 		return internalError(err)
@@ -106,7 +106,7 @@ func (s *PostgresStorage) get(
 	ctx context.Context,
 	whereClause string,
 	whereArgs ...any,
-) (users []*user.User, outErr error) {
+) (users []*auth.User, outErr error) {
 
 	var tmp userWithAuthRow
 
@@ -141,29 +141,29 @@ func (s *PostgresStorage) get(
 	return rowsToDomain(fetchedRows), outErr
 }
 
-func (s *PostgresStorage) GetByEmail(ctx context.Context, email string) (*user.User, error) {
+func (s *PostgresStorage) GetByEmail(ctx context.Context, email string) (*auth.User, error) {
 	users, err := s.get(ctx, "u.email = ? ", email)
 	if err != nil {
 		return nil, err
 	}
 	if len(users) == 0 {
-		return nil, user.ErrUserNotFound
+		return nil, auth.ErrUserNotFound
 	}
 	return users[0], nil
 }
 
-func (s *PostgresStorage) GetByID(ctx context.Context, userId string) (*user.User, error) {
+func (s *PostgresStorage) GetByID(ctx context.Context, userId string) (*auth.User, error) {
 	users, err := s.get(ctx, "u.user_id = ? ", userId)
 	if err != nil {
 		return nil, err
 	}
 	if len(users) == 0 {
-		return nil, user.ErrUserNotFound
+		return nil, auth.ErrUserNotFound
 	}
 	return users[0], nil
 }
 
-func (s *PostgresStorage) Persist(ctx context.Context, u *user.User) error {
+func (s *PostgresStorage) Persist(ctx context.Context, u *auth.User) error {
 	dbState, err := s.GetByID(ctx, u.UserID)
 	if err != nil {
 		return err
@@ -187,11 +187,11 @@ func (s *PostgresStorage) Persist(ctx context.Context, u *user.User) error {
 		}
 
 		if affected == 0 {
-			return fmt.Errorf("can't persist auth data: %w", user.ErrUserNotFound)
+			return fmt.Errorf("can't persist auth data: %w", auth.ErrUserNotFound)
 		}
 	}
 
-	dbAuthSet := make(map[string]*user.Authorization)
+	dbAuthSet := make(map[string]*auth.Authorization)
 	for _, auth := range dbState.Authorizations {
 		dbAuthSet[auth.Identifier] = &auth
 	}
@@ -224,18 +224,18 @@ func (s *PostgresStorage) Close() error {
 	return nil
 }
 
-func (s *PostgresStorage) markSeen(u *user.User) {
+func (s *PostgresStorage) markSeen(u *auth.User) {
 	s.seenMu.Lock()
 	s.seen[u.UserID] = u
 	s.seenMu.Unlock()
 }
 func (s *PostgresStorage) clearSeen() {
 	s.seenMu.Lock()
-	s.seen = make(map[string]*user.User)
+	s.seen = make(map[string]*auth.User)
 	s.seenMu.Unlock()
 }
 
-func (s *PostgresStorage) persistAuth(ctx context.Context, source, changed *user.Authorization) error {
+func (s *PostgresStorage) persistAuth(ctx context.Context, source, changed *auth.Authorization) error {
 	log, _ := diff.Diff(source, changed)
 	if len(log) == 0 {
 		return s.persistDevice(ctx, source.Identifier, &source.Device, &changed.Device)
@@ -252,7 +252,7 @@ func (s *PostgresStorage) persistAuth(ctx context.Context, source, changed *user
 	return s.persistDevice(ctx, source.Identifier, &source.Device, &changed.Device)
 }
 
-func (s *PostgresStorage) persistDevice(ctx context.Context, id string, source, changed *user.Device) error {
+func (s *PostgresStorage) persistDevice(ctx context.Context, id string, source, changed *auth.Device) error {
 	log, _ := diff.Diff(source, changed)
 	if len(log) == 0 {
 		return nil
@@ -300,27 +300,27 @@ type userWithAuthRow struct {
 	Model     *string
 }
 
-func rowsToDomain(rows []userWithAuthRow) []*user.User {
-	usersMap := make(map[string]*user.User)
+func rowsToDomain(rows []userWithAuthRow) []*auth.User {
+	usersMap := make(map[string]*auth.User)
 
 	for _, row := range rows {
 		if _, ok := usersMap[row.UserID]; !ok {
-			usersMap[row.UserID] = &user.User{
+			usersMap[row.UserID] = &auth.User{
 				UserID:         row.UserID,
 				Email:          row.Email,
 				PasswordHash:   row.PasswordHash,
 				CreatedAt:      time.Time{},
 				UpdatedAt:      time.Time{},
-				Authorizations: make([]user.Authorization, 0),
+				Authorizations: make([]auth.Authorization, 0),
 			}
 		}
 		if row.Identifier != nil {
-			auth := user.Authorization{
+			auth := auth.Authorization{
 				Identifier: *row.Identifier,
 				CreatedAt:  *row.AuthCreatedAt,
 				ValidUntil: *row.AuthValidUntil,
 				LogoutAt:   row.LogoutAt,
-				Device: user.Device{
+				Device: auth.Device{
 					Browser:   *row.Browser,
 					OS:        *row.OS,
 					IPAddress: *row.IpAddress,
@@ -330,7 +330,7 @@ func rowsToDomain(rows []userWithAuthRow) []*user.User {
 		}
 	}
 
-	users := make([]*user.User, 0, len(usersMap))
+	users := make([]*auth.User, 0, len(usersMap))
 
 	for _, u := range usersMap {
 		users = append(users, u)
@@ -338,7 +338,7 @@ func rowsToDomain(rows []userWithAuthRow) []*user.User {
 	return users
 }
 
-func domainToRows(user *user.User) (res []userWithAuthRow) {
+func domainToRows(user *auth.User) (res []userWithAuthRow) {
 	for _, auth := range user.Authorizations {
 		t := userWithAuthRow{
 			UserID:         user.UserID,

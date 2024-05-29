@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/burenotti/go_health_backend/internal/app/auth"
+	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"strings"
@@ -9,7 +9,7 @@ import (
 
 const KeyCurrentUser = "current_user"
 
-func LoginRequired(authorizer *auth.Authorizer) echo.MiddlewareFunc {
+func LoginRequired(authorizer *authapp.Authorizer) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			header := c.Request().Header.Get("Authorization")

@@ -1,9 +1,9 @@
-package auth
+package authapp
 
 import (
 	"context"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
-	"github.com/burenotti/go_health_backend/internal/domain/user"
+	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"log/slog"
 )
 
@@ -25,9 +25,9 @@ func (s *Service) CreateUser(
 	userId string,
 	email string,
 	password string,
-) (u *user.User, err error) {
+) (u *auth.User, err error) {
 	err = uow.Atomic(ctx, func(ctx context.Context, a *AtomicContext) error {
-		u = user.NewUser(userId, email, password, s.Authorizer)
+		u = auth.NewUser(userId, email, password, s.Authorizer)
 		if err := a.UserStorage.Add(ctx, u); err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func (s *Service) CreateUser(
 func (s *Service) Login(
 	ctx context.Context,
 	uow *unitofwork.UnitOfWork[*AtomicContext],
-	device user.Device,
+	device auth.Device,
 	email string,
 	password string,
 ) (tokens Tokens, err error) {

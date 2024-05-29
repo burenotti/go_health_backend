@@ -1,4 +1,4 @@
-package auth
+package authapp
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage/userstorage"
 	"github.com/burenotti/go_health_backend/internal/domain"
-	"github.com/burenotti/go_health_backend/internal/domain/user"
+	"github.com/burenotti/go_health_backend/internal/domain/auth"
 )
 
 type UserStorage interface {
-	Add(ctx context.Context, u *user.User) error
-	GetByEmail(ctx context.Context, email string) (*user.User, error)
-	GetByID(ctx context.Context, userId string) (*user.User, error)
-	Persist(ctx context.Context, u *user.User) error
+	Add(ctx context.Context, u *auth.User) error
+	GetByEmail(ctx context.Context, email string) (*auth.User, error)
+	GetByID(ctx context.Context, userId string) (*auth.User, error)
+	Persist(ctx context.Context, u *auth.User) error
 	CollectEvents() []domain.Event
 	Close() error
 }

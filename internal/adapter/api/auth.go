@@ -2,9 +2,9 @@ package api
 
 import (
 	"errors"
-	"github.com/burenotti/go_health_backend/internal/app/auth"
+	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
-	"github.com/burenotti/go_health_backend/internal/domain/user"
+	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"github.com/labstack/echo/v4"
 	"github.com/mileusna/useragent"
 	"net/http"
@@ -44,18 +44,18 @@ func (s *Server) Login(c echo.Context) error {
 		ipAddress = c.Request().Header.Get("X-Forwarded-For")
 	}
 
-	device := user.Device{
+	device := auth.Device{
 		Browser:   agent.Name,
 		OS:        agent.OS,
 		IPAddress: ipAddress,
 		Model:     agent.Device,
 	}
 
-	uow := unitofwork.New[*auth.AtomicContext](s.db, auth.NewAtomicContext, s.msgBus, s.logger)
+	uow := unitofwork.New[*authapp.AtomicContext](s.db, authapp.NewAtomicContext, s.msgBus, s.logger)
 
 	tokens, err := s.authService.Login(c.Request().Context(), uow, device, b.Email, b.Password)
 	if err != nil {
-		if errors.Is(err, user.ErrInvalidCredentials) {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return JsonError(c, http.StatusUnauthorized, "invalid email or password")
 		}
 		return JsonError(c, http.StatusInternalServerError, err)
@@ -78,12 +78,12 @@ func (s *Server) SignUp(c echo.Context) error {
 		return JsonError(c, http.StatusBadRequest, err)
 	}
 
-	uow := unitofwork.New[*auth.AtomicContext](s.db, auth.NewAtomicContext, s.msgBus, s.logger)
+	uow := unitofwork.New[*authapp.AtomicContext](s.db, authapp.NewAtomicContext, s.msgBus, s.logger)
 
 	ctx := c.Request().Context()
 	_, err := s.authService.CreateUser(ctx, uow, b.UserID, b.Email, b.Password)
 	if err != nil {
-		if errors.Is(err, user.ErrUserExists) {
+		if errors.Is(err, auth.ErrUserExists) {
 			return JsonError(c, http.StatusBadRequest, "user already exists")
 		}
 		return JsonError(c, http.StatusInternalServerError, err)
@@ -93,11 +93,11 @@ func (s *Server) SignUp(c echo.Context) error {
 }
 
 func (s *Server) Logout(c echo.Context) error {
-	u := c.Get(KeyCurrentUser).(*auth.AccessTokenData)
+	u := c.Get(KeyCurrentUser).(*authapp.AccessTokenData)
 
-	uow := unitofwork.New[*auth.AtomicContext](s.db, auth.NewAtomicContext, s.msgBus, s.logger)
+	uow := unitofwork.New[*authapp.AtomicContext](s.db, authapp.NewAtomicContext, s.msgBus, s.logger)
 	if err := s.authService.Logout(c.Request().Context(), uow, u.UserID, u.Authorization); err != nil {
-		if errors.Is(err, user.ErrUnauthorized) {
+		if errors.Is(err, auth.ErrUnauthorized) {
 			return JsonError(c, http.StatusUnauthorized, "unauthorized")
 		}
 		return JsonError(c, http.StatusInternalServerError, err)

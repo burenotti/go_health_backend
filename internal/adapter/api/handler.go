@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
-	"github.com/burenotti/go_health_backend/internal/app/auth"
+	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -19,7 +19,7 @@ type Server struct {
 	logger      *slog.Logger
 	addr        string
 	db          storage.DB
-	authService *auth.Service
+	authService *authapp.Service
 	msgBus      unitofwork.MessageBus
 	validator   *validator.Validate
 }

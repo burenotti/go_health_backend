@@ -7,11 +7,11 @@ import (
 	"flag"
 	"github.com/burenotti/go_health_backend/internal/adapter/api"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
-	"github.com/burenotti/go_health_backend/internal/app/auth"
+	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	"github.com/burenotti/go_health_backend/internal/app/messagebus"
 	"github.com/burenotti/go_health_backend/internal/config"
 	"github.com/burenotti/go_health_backend/internal/domain"
-	"github.com/burenotti/go_health_backend/internal/domain/user"
+	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/leporo/sqlf"
 	"golang.org/x/crypto/bcrypt"
@@ -32,7 +32,7 @@ func main() {
 	logger := initLogger(cfg)
 
 	bus := messagebus.New(logger)
-	bus.Register(user.EventCreated, func(event domain.Event) error {
+	bus.Register(auth.EventCreated, func(event domain.Event) error {
 		logger.Info("processed user created event")
 		return nil
 	})
@@ -44,14 +44,14 @@ func main() {
 		panic("failed to connect database: " + err.Error())
 	}
 
-	authorizer := &auth.Authorizer{
+	authorizer := &authapp.Authorizer{
 		Cost:             bcrypt.DefaultCost,
 		Secret:           cfg.JWT.Secret,
 		AccessTokenTTL:   cfg.JWT.AccessTokenTTL,
 		AuthorizationTTL: cfg.JWT.RefreshTokenTTL,
 	}
 
-	service := auth.NewService(authorizer, logger)
+	service := authapp.NewService(authorizer, logger)
 
 	server := api.NewServer(
 		api.Addr(cfg.Server.Host, cfg.Server.Port),
