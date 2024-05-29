@@ -1,0 +1,48 @@
+services:
+  server:
+    build:
+      image: 'health_backend'
+      context: .
+      dockerfile: 'Dockerfile'
+      target: final
+    expose:
+      - 80
+    ports:
+      - 8080:80
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./config:/config
+    develop:
+      watch:
+        - action: rebuild
+          path: ./internal/
+        - action: rebuild
+          path: ./cmd
+
+  db:
+    image: postgres:16-alpine
+    restart: always
+    user: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=health
+      - POSTGRES_DB=health
+      - POSTGRES_PASSWORD=health
+    ports:
+      - 5432:5432
+    expose:
+      - 5432
+    healthcheck:
+      test: [ "CMD", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
+secrets:
+  db-password:
+    file: db/password.txt
