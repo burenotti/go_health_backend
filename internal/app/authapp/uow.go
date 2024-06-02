@@ -21,8 +21,9 @@ type UserStorage interface {
 }
 
 type AtomicContext struct {
+	ctx context.Context
 	storage.DBContext
-	UserStorage
+	UserStorage UserStorage
 }
 
 func (a *AtomicContext) Commit() error {
@@ -41,8 +42,17 @@ func (a *AtomicContext) Close() (err error) {
 	return err
 }
 
-func NewAtomicContext(dbContext storage.DBContext) (*AtomicContext, error) {
+func (a *AtomicContext) CollectEvents() []domain.Event {
+	return a.UserStorage.CollectEvents()
+}
+
+func (a *AtomicContext) Context() context.Context {
+	return a.ctx
+}
+
+func NewAtomicContext(ctx context.Context, dbContext storage.DBContext) (*AtomicContext, error) {
 	return &AtomicContext{
+		ctx:         ctx,
 		DBContext:   dbContext,
 		UserStorage: userstorage.NewPostgresStorage(dbContext, nil),
 	}, nil

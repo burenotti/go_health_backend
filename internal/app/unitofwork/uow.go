@@ -14,6 +14,7 @@ var (
 )
 
 type AtomicContext interface {
+	Context() context.Context
 	Commit() error
 	Close() error
 	CollectEvents() []domain.Event
@@ -25,14 +26,14 @@ type MessageBus interface {
 
 type UnitOfWork[T AtomicContext] struct {
 	db         storage.DB
-	newContext func(storage.DBContext) (T, error)
+	newContext func(context.Context, storage.DBContext) (T, error)
 	msgBus     MessageBus
 	logger     *slog.Logger
 }
 
 func New[T AtomicContext](
 	db storage.DB,
-	newCtx func(storage.DBContext) (T, error),
+	newCtx func(context.Context, storage.DBContext) (T, error),
 	msgBus MessageBus,
 	logger *slog.Logger,
 ) *UnitOfWork[T] {
@@ -46,14 +47,17 @@ func New[T AtomicContext](
 
 func (uow *UnitOfWork[T]) Atomic(
 	ctx context.Context,
-	do func(context.Context, T) error,
+	do func(T) error,
 ) (err error) {
 	tx, err := uow.db.Begin(ctx)
 	if err != nil {
 		return stateRollbackError(err)
 	}
 
-	atomicCtx, err := uow.newContext(tx)
+	txCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	atomicCtx, err := uow.newContext(txCtx, tx)
 	if err != nil {
 		return stateRollbackError(err)
 	}
@@ -67,10 +71,7 @@ func (uow *UnitOfWork[T]) Atomic(
 		}
 	}()
 
-	txCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	if err := do(txCtx, atomicCtx); err != nil {
+	if err := do(atomicCtx); err != nil {
 		if err := tx.Rollback(); err != nil {
 			uow.logger.Error("failed to rollback transaction", "error", err)
 		}
