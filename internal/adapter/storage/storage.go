@@ -3,6 +3,12 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrInternal = errors.New("internal storage error")
 )
 
 type Comparable interface {
@@ -45,4 +51,8 @@ type Tx struct {
 
 func (t *Tx) Begin(ctx context.Context) (DBContext, error) {
 	return t, nil
+}
+
+func InternalError(err error) error {
+	return errors.Join(fmt.Errorf("internal storage error: %w", err), ErrInternal)
 }

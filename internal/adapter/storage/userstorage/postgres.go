@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
+	"github.com/burenotti/go_health_backend/internal/adapter/storage/pgutil"
 	"github.com/burenotti/go_health_backend/internal/domain"
 	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"github.com/jackc/pgerrcode"
@@ -135,6 +136,9 @@ func (s *PostgresStorage) get(
 	})
 
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, internalError(err)
 	}
 
@@ -182,10 +186,7 @@ func (s *PostgresStorage) Persist(ctx context.Context, u *auth.User) error {
 
 	if log, _ := diff.Diff(u, dbState); len(log) != 0 {
 		q := sqlf.Update("users").Where("user_id = ?", u.UserID)
-		q, err := makeUpdateQuery(*q, log)
-		if err != nil {
-			return err
-		}
+		q = pgutil.MakeUpdateQuery(q, log)
 
 		res, err := q.Exec(ctx, s.db)
 		if err != nil {
@@ -252,10 +253,7 @@ func (s *PostgresStorage) persistAuth(ctx context.Context, source, changed *auth
 		return s.persistDevice(ctx, source.Identifier, &source.Device, &changed.Device)
 	}
 	q := sqlf.Update("authorizations").Where("identifier = ?", source.Identifier)
-	q, err := makeUpdateQuery(*q, log)
-	if err != nil {
-		return internalError(err)
-	}
+	q = pgutil.MakeUpdateQuery(q, log)
 
 	if _, err := q.Exec(ctx, s.db); err != nil {
 		return internalError(err)
@@ -270,10 +268,7 @@ func (s *PostgresStorage) persistDevice(ctx context.Context, id string, source, 
 	}
 
 	q := sqlf.Update("devices").Where("authorization_identifier = ?", id)
-	q, err := makeUpdateQuery(*q, log)
-	if err != nil {
-		return internalError(err)
-	}
+	q = pgutil.MakeUpdateQuery(q, log)
 
 	if _, err := q.Exec(ctx, s.db); err != nil {
 		return internalError(err)
@@ -369,20 +364,4 @@ func domainToRows(user *auth.User) (res []userWithAuthRow) {
 		res = append(res, t)
 	}
 	return res
-}
-
-func makeUpdateQuery(base sqlf.Stmt, updates diff.Changelog) (*sqlf.Stmt, error) {
-	res := &base
-
-	for _, upd := range updates {
-		if upd.Type != "update" {
-			return nil, errors.New("invalid update type " + upd.Type)
-		}
-		if len(upd.Path) > 1 {
-			return nil, errors.New("cannot process updates in nested structures")
-		}
-
-		res = res.Set(upd.Path[0], upd.To)
-	}
-	return res, nil
 }
