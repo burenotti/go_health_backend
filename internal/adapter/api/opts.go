@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/app/authapp"
+	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"log/slog"
 	"net"
@@ -32,6 +33,11 @@ func DBContext(db storage.DB) Option {
 func AuthService(service *authapp.Service) Option {
 	return func(s *Server) {
 		s.authService = service
+	}
+}
+func ProfileService(service *profileapp.Service) Option {
+	return func(s *Server) {
+		s.profileService = service
 	}
 }
 

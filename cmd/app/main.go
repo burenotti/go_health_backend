@@ -9,6 +9,7 @@ import (
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	"github.com/burenotti/go_health_backend/internal/app/messagebus"
+	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/config"
 	"github.com/burenotti/go_health_backend/internal/domain"
 	"github.com/burenotti/go_health_backend/internal/domain/auth"
@@ -51,14 +52,16 @@ func main() {
 		AuthorizationTTL: cfg.JWT.RefreshTokenTTL,
 	}
 
-	service := authapp.NewService(authorizer, logger)
+	authService := authapp.NewService(authorizer, logger)
+	profileService := profileapp.New(logger)
 
 	server := api.NewServer(
 		api.Addr(cfg.Server.Host, cfg.Server.Port),
 		api.Logger(logger),
-		api.AuthService(service),
 		api.DBContext(storage.DB{DB: db}),
 		api.MessageBus(bus),
+		api.AuthService(authService),
+		api.ProfileService(profileService),
 	)
 
 	ctx := context.Background()

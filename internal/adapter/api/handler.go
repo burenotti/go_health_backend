@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/app/authapp"
+	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -15,13 +16,14 @@ import (
 )
 
 type Server struct {
-	handler     *echo.Echo
-	logger      *slog.Logger
-	addr        string
-	db          storage.DB
-	authService *authapp.Service
-	msgBus      unitofwork.MessageBus
-	validator   *validator.Validate
+	handler        *echo.Echo
+	logger         *slog.Logger
+	addr           string
+	db             storage.DB
+	authService    *authapp.Service
+	profileService *profileapp.Service
+	msgBus         unitofwork.MessageBus
+	validator      *validator.Validate
 }
 
 func NewServer(opt ...Option) *Server {
@@ -60,6 +62,7 @@ func NewServer(opt ...Option) *Server {
 
 func (s *Server) Mount() {
 	s.MountAuth()
+	s.MountProfile()
 }
 
 func (s *Server) Start() error {
