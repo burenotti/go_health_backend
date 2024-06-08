@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	profileservice "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"github.com/burenotti/go_health_backend/internal/domain/profile"
@@ -17,6 +18,7 @@ func (s *Server) MountProfile() {
 	s.handler.POST("/coaches/:user_id", s.CreateCoach)
 	s.handler.GET("/coaches/:user_id", s.GetCoachByID)
 
+	s.handler.GET("/profiles/me", s.GetMyProfile, LoginRequired(s.authService.Authorizer))
 }
 
 func (s *Server) getProfileUoW() *unitofwork.UnitOfWork[*profileservice.AtomicContext] {
@@ -169,4 +171,40 @@ func (s *Server) GetTraineeByID(c echo.Context) error {
 		LastName:  t.LastName,
 		BirthDate: t.BirthDate,
 	})
+}
+
+func (s *Server) GetMyProfile(c echo.Context) error {
+	user := c.Get(KeyCurrentUser).(*authapp.AccessTokenData)
+	uow := s.getProfileUoW()
+
+	p, err := s.profileService.GetProfileByID(c.Request().Context(), user.UserID, uow)
+	if err != nil {
+		if errors.Is(err, profile.ErrProfileNotFound) {
+			return JsonError(c, http.StatusNotFound, "profile not found")
+		}
+		return JsonError(c, http.StatusInternalServerError, err)
+	}
+
+	switch v := p.(type) {
+	case *profile.Coach:
+		return c.JSON(http.StatusOK, GetCoachByIDResponse{
+			UserID:          v.UserID,
+			Type:            v.Type(),
+			FirstName:       v.FirstName,
+			LastName:        v.LastName,
+			BirthDate:       v.BirthDate,
+			YearsExperience: v.YearsExperience,
+			Bio:             v.Bio,
+		})
+	case *profile.Trainee:
+		return c.JSON(http.StatusOK, GetTraineeByIDResponse{
+			UserID:    v.UserID,
+			Type:      v.Type(),
+			FirstName: v.FirstName,
+			LastName:  v.LastName,
+			BirthDate: v.BirthDate,
+		})
+	default:
+		panic("unknown profile type")
+	}
 }
