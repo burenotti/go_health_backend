@@ -7,6 +7,7 @@ import (
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	groupservice "github.com/burenotti/go_health_backend/internal/app/group"
+	inviteservice "github.com/burenotti/go_health_backend/internal/app/invite"
 	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"github.com/go-playground/validator/v10"
@@ -24,6 +25,7 @@ type Server struct {
 	authService    *authapp.Service
 	profileService *profileapp.Service
 	groupService   *groupservice.Service
+	inviteService  *inviteservice.Service
 	msgBus         unitofwork.MessageBus
 	validator      *validator.Validate
 }
@@ -66,6 +68,7 @@ func (s *Server) Mount() {
 	s.MountAuth()
 	s.MountProfile()
 	s.MountGroups()
+	s.MountInvites()
 }
 
 func (s *Server) Start() error {

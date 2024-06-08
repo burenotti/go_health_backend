@@ -8,6 +8,8 @@ import (
 	"github.com/burenotti/go_health_backend/internal/adapter/api"
 	"github.com/burenotti/go_health_backend/internal/adapter/storage"
 	"github.com/burenotti/go_health_backend/internal/app/authapp"
+	groupservice "github.com/burenotti/go_health_backend/internal/app/group"
+	inviteservice "github.com/burenotti/go_health_backend/internal/app/invite"
 	"github.com/burenotti/go_health_backend/internal/app/messagebus"
 	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/config"
@@ -54,6 +56,8 @@ func main() {
 
 	authService := authapp.NewService(authorizer, logger)
 	profileService := profileapp.New(logger)
+	inviteService := inviteservice.New(logger)
+	groupService := groupservice.New(logger)
 
 	server := api.NewServer(
 		api.Addr(cfg.Server.Host, cfg.Server.Port),
@@ -62,6 +66,8 @@ func main() {
 		api.MessageBus(bus),
 		api.AuthService(authService),
 		api.ProfileService(profileService),
+		api.GroupService(groupService),
+		api.InviteService(inviteService),
 	)
 
 	ctx := context.Background()
