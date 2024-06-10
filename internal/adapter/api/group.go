@@ -65,6 +65,7 @@ type GetGroupRequest struct {
 
 type GetGroupResponse struct {
 	GroupID     string `json:"group_id"`
+	CoachID     string `json:"coach_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
@@ -87,6 +88,7 @@ func (s *Server) GetGroup(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, GetGroupResponse{
 		GroupID:     string(g.GroupID),
+		CoachID:     string(g.CoachID),
 		Name:        g.Name,
 		Description: g.Description,
 	})
