@@ -11,6 +11,7 @@ import (
 	groupservice "github.com/burenotti/go_health_backend/internal/app/group"
 	inviteservice "github.com/burenotti/go_health_backend/internal/app/invite"
 	"github.com/burenotti/go_health_backend/internal/app/messagebus"
+	metricservice "github.com/burenotti/go_health_backend/internal/app/metric"
 	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/config"
 	"github.com/burenotti/go_health_backend/internal/domain"
@@ -58,6 +59,7 @@ func main() {
 	profileService := profileapp.New(logger)
 	inviteService := inviteservice.New(logger)
 	groupService := groupservice.New(logger)
+	metricService := metricservice.New(logger)
 
 	server := api.NewServer(
 		api.Addr(cfg.Server.Host, cfg.Server.Port),
@@ -68,6 +70,7 @@ func main() {
 		api.ProfileService(profileService),
 		api.GroupService(groupService),
 		api.InviteService(inviteService),
+		api.MetricService(metricService),
 	)
 
 	ctx := context.Background()

@@ -5,6 +5,7 @@ import (
 	"github.com/burenotti/go_health_backend/internal/app/authapp"
 	groupservice "github.com/burenotti/go_health_backend/internal/app/group"
 	inviteservice "github.com/burenotti/go_health_backend/internal/app/invite"
+	metricservice "github.com/burenotti/go_health_backend/internal/app/metric"
 	profileapp "github.com/burenotti/go_health_backend/internal/app/profile"
 	"github.com/burenotti/go_health_backend/internal/app/unitofwork"
 	"log/slog"
@@ -48,9 +49,16 @@ func GroupService(service *groupservice.Service) Option {
 		s.groupService = service
 	}
 }
+
 func InviteService(service *inviteservice.Service) Option {
 	return func(s *Server) {
 		s.inviteService = service
+	}
+}
+
+func MetricService(service *metricservice.Service) Option {
+	return func(s *Server) {
+		s.metricService = service
 	}
 }
 
