@@ -57,7 +57,6 @@ func (s *Server) CreateTrainee(c echo.Context) error {
 
 type CreateCoachRequest struct {
 	UserID          string     `param:"user_id"`
-	Type            string     `json:"type"`
 	FirstName       string     `json:"first_name,omitempty"`
 	LastName        string     `json:"last_name,omitempty"`
 	BirthDate       *time.Time `json:"birth_date,omitempty"`
