@@ -130,12 +130,12 @@ func (s *PostgresStorage) GetMembers(
 	q := sqlf.From("groups g").
 		Join("invites i", "i.group_id = g.group_id").
 		Join("invites_accept ia", "i.invite_id = ia.invite_id").
-		Join("trainees_profiles t", "t.trainee_id = ia.trainee_id").
-		Join("users u", "u.user_id = t.trainee_id").
+		Join("trainees_profiles t", "t.user_id = ia.trainee_id").
+		Join("users u", "u.user_id = t.user_id").
 		Where("g.group_id = ?", groupId).
 		Limit(limit).
 		Offset(offset).
-		Select("t.trainee_id").To(&tmp.TraineeID).
+		Select("t.user_id").To(&tmp.TraineeID).
 		Select("u.email").To(&tmp.Email).
 		Select("t.first_name").To(&tmp.FirstName).
 		Select("t.last_name").To(&tmp.LastName)
@@ -145,6 +145,7 @@ func (s *PostgresStorage) GetMembers(
 			TraineeID: group.TraineeID(tmp.TraineeID),
 			FirstName: tmp.FirstName,
 			LastName:  tmp.LastName,
+			Email:     tmp.Email,
 		})
 	})
 
