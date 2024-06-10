@@ -14,7 +14,7 @@ import (
 func (s *Server) MountInvites() {
 	loginRequired := LoginRequired(s.authService.Authorizer)
 	s.handler.POST("/groups/:group_id/invites", s.CreateInvite, loginRequired)
-	s.handler.POST("/invites/:invite_id/accept", s.AcceptInvite, loginRequired)
+	s.handler.POST("/invites/accept", s.AcceptInvite, loginRequired)
 
 }
 
