@@ -27,7 +27,7 @@ const (
 
 type Authorizer interface {
 	Hash(password string) string
-	Authorize(u *User, password string, dev Device) (Authorization, error)
+	Authorize(u *User, password string, dev Device) (*Authorization, error)
 }
 
 type Device struct {
@@ -38,7 +38,8 @@ type Device struct {
 }
 
 type Authorization struct {
-	Identifier string     `diff:"-"`
+	ID         string     `diff:"-"`
+	Secret     string     `diff:"-"`
 	CreatedAt  time.Time  `diff:"-"`
 	ValidUntil time.Time  `diff:"valid_until"`
 	LogoutAt   *time.Time `diff:"logout_at"`
@@ -51,24 +52,30 @@ func (a *Authorization) IsActive() bool {
 
 type User struct {
 	domain.Aggregate `diff:"-"`
-	UserID           string          `diff:"-"`
-	Email            string          `diff:"email"`
-	PasswordHash     string          `diff:"password_hash"`
-	CreatedAt        time.Time       `diff:"-"`
-	UpdatedAt        time.Time       `diff:"updated_at"`
-	Authorizations   []Authorization `diff:"-"`
+	UserID           string           `diff:"-"`
+	Email            string           `diff:"email"`
+	PasswordHash     string           `diff:"password_hash"`
+	CreatedAt        time.Time        `diff:"-"`
+	UpdatedAt        time.Time        `diff:"updated_at"`
+	Authorizations   []*Authorization `diff:"-"`
 }
 
-func (u *User) GetAuthorization(identifier string) *Authorization {
-	var auth *Authorization
-
-	for i, a := range u.Authorizations {
-		if a.Identifier == identifier {
-			auth = &u.Authorizations[i]
+func (u *User) GetAuthByID(authId string) *Authorization {
+	for _, auth := range u.Authorizations {
+		if auth.ID == authId {
+			return auth
 		}
 	}
+	return nil
+}
 
-	return auth
+func (u *User) GetAuthBySecret(secret string) *Authorization {
+	for _, auth := range u.Authorizations {
+		if auth.Secret == secret {
+			return auth
+		}
+	}
+	return nil
 }
 
 func NewUser(
@@ -93,27 +100,27 @@ func NewUser(
 	return u
 }
 
-func (u *User) Authorize(a Authorizer, password string, dev Device) (Authorization, error) {
+func (u *User) Authorize(a Authorizer, password string, dev Device) (*Authorization, error) {
 
 	auth, err := a.Authorize(u, password, dev)
 	if err != nil {
-		return Authorization{}, err
+		return nil, err
 	}
 
 	u.Authorizations = append(u.Authorizations, auth)
 
 	u.PushEvent(LoginEvent{
-		At:         time.Now().UTC(),
-		UserID:     u.UserID,
-		Identifier: auth.Identifier,
-		Device:     auth.Device,
+		At:     time.Now().UTC(),
+		UserID: u.UserID,
+		ID:     auth.Secret,
+		Device: auth.Device,
 	})
 
 	return auth, nil
 }
 
-func (u *User) Logout(identifier string) error {
-	auth := u.GetAuthorization(identifier)
+func (u *User) Logout(authId string) error {
+	auth := u.GetAuthByID(authId)
 
 	if auth == nil {
 		return fmt.Errorf("%w: provided identifier not found", ErrUnauthorized)
@@ -127,9 +134,9 @@ func (u *User) Logout(identifier string) error {
 	auth.LogoutAt = &now
 
 	u.PushEvent(LogoutEvent{
-		At:         time.Now().UTC(),
-		UserID:     u.UserID,
-		Identifier: auth.Identifier,
+		At:     time.Now().UTC(),
+		UserID: u.UserID,
+		ID:     auth.ID,
 	})
 
 	return nil
@@ -152,10 +159,10 @@ func (u CreatedEvent) PublishedAt() time.Time {
 }
 
 type LoginEvent struct {
-	At         time.Time
-	UserID     string
-	Identifier string
-	Device     Device
+	At     time.Time
+	UserID string
+	ID     string
+	Device Device
 }
 
 func (u LoginEvent) Type() string {
@@ -167,9 +174,9 @@ func (u LoginEvent) PublishedAt() time.Time {
 }
 
 type LogoutEvent struct {
-	At         time.Time
-	UserID     string
-	Identifier string
+	At     time.Time
+	UserID string
+	ID     string
 }
 
 func (u LogoutEvent) Type() string {

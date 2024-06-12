@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/burenotti/go_health_backend/internal/domain/auth"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"time"
 )
@@ -23,25 +24,26 @@ type Authorizer struct {
 	AuthorizationTTL time.Duration
 }
 
-func (a *Authorizer) Authorize(u *auth.User, password string, dev auth.Device) (auth.Authorization, error) {
+func (a *Authorizer) Authorize(u *auth.User, password string, dev auth.Device) (*auth.Authorization, error) {
 	hashBytes, err := hex.DecodeString(u.PasswordHash)
 	if err != nil {
-		return auth.Authorization{}, err
+		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword(hashBytes, []byte(password)); err != nil {
-		return auth.Authorization{}, auth.ErrInvalidCredentials
+		return nil, auth.ErrInvalidCredentials
 	}
 
 	now := time.Now().UTC()
-	auth := auth.Authorization{
-		Identifier: a.generateIdentifier(),
+	authorization := &auth.Authorization{
+		ID:         uuid.New().String(),
+		Secret:     a.generateSecret(),
 		CreatedAt:  now,
 		ValidUntil: now.Add(a.AuthorizationTTL),
 		LogoutAt:   nil,
 		Device:     dev,
 	}
-	return auth, nil
+	return authorization, nil
 }
 
 func (a *Authorizer) Hash(password string) string {
@@ -52,7 +54,7 @@ func (a *Authorizer) Hash(password string) string {
 	return hex.EncodeToString(hash)
 }
 
-func (a *Authorizer) generateIdentifier() string {
+func (a *Authorizer) generateSecret() string {
 	var bytes [16]byte
 	if n, err := rand.Read(bytes[:]); n != len(bytes) || err != nil {
 		panic("failed to generate identifier")
@@ -64,7 +66,7 @@ func (a *Authorizer) generateIdentifier() string {
 func (a *Authorizer) GenerateAccessToken(u *auth.User, auth *auth.Authorization) (string, error) {
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"jti": auth.Identifier,
+		"jti": auth.ID,
 		"sub": u.UserID,
 		"exp": now.Add(a.AccessTokenTTL).Unix(),
 		"iat": now.Unix(),

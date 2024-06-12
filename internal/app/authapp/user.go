@@ -62,7 +62,7 @@ func (s *Service) Login(
 			return err
 		}
 
-		accessToken, err := s.Authorizer.GenerateAccessToken(u, &a)
+		accessToken, err := s.Authorizer.GenerateAccessToken(u, a)
 		if err != nil {
 			return err
 		}
@@ -73,7 +73,7 @@ func (s *Service) Login(
 
 		tokens = Tokens{
 			AccessToken:  accessToken,
-			RefreshToken: a.Identifier,
+			RefreshToken: a.Secret,
 		}
 		return ctx.Commit()
 	})
@@ -108,21 +108,21 @@ func (s *Service) Logout(
 func (s *Service) Refresh(
 	ctx context.Context,
 	uow *unitofwork.UnitOfWork[*AtomicContext],
-	authIdentifier string,
+	authId string,
 ) (tokens Tokens, err error) {
 	err = uow.Atomic(ctx, func(ctx *AtomicContext) error {
-		user, err := ctx.UserStorage.GetByAuthorization(ctx.Context(), authIdentifier)
+		user, err := ctx.UserStorage.GetByAuthID(ctx.Context(), authId)
 		if err != nil {
 			return err
 		}
 
-		a := user.GetAuthorization(authIdentifier)
+		a := user.GetAuthByID(authId)
 		if !a.IsActive() {
 			return fmt.Errorf("%w: authorization is not active", ErrInvalidAuthorization)
 		}
 
 		tokens.AccessToken, err = s.Authorizer.GenerateAccessToken(user, a)
-		tokens.RefreshToken = a.Identifier
+		tokens.RefreshToken = a.Secret
 		return err
 	})
 	return
