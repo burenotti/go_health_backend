@@ -1,6 +1,6 @@
-bin/
-config/
-docs/
+/bin/
+/config/
+/docs/
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/windows,linux,macos,go,goland+iml
